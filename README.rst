@@ -11,4 +11,6 @@ ASSUMPTIONS
 
 BUILDING AND TESTING
 
-All details on how to compile, deploy and test the driver and kernel to a Raspberry Pi 3B+ are given in the respective README.rst file located in drivers/i2c/busses folder
+All details on how to compile, deploy and test the driver and kernel to a Raspberry Pi 3B+ are given in the respective README.rst file located in drivers/i2c/busses folder:
+https://github.com/uberspark/uobjcoll-raspberrypi-linux-i2c-bcm2835/blob/uobjcoll-4.4.y/drivers/i2c/busses/README.rst
+
