@@ -140,6 +140,7 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 	int ret;
 
 	struct i2c_client *client = file->private_data;
+	printk(KERN_INFO "i2cdev_read() called\n");
 
 	if (count > 8192)
 		count = 8192;
@@ -155,6 +156,7 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 	if (ret >= 0)
 		ret = copy_to_user(buf, tmp, count) ? -EFAULT : ret;
 	kfree(tmp);
+	printk(KERN_INFO "i2cdev_read() returned normally\n");
 	return ret;
 }
 
@@ -242,6 +244,7 @@ static noinline int i2cdev_ioctl_rdwr(struct i2c_client *client,
 	struct i2c_msg *rdwr_pa;
 	u8 __user **data_ptrs;
 	int i, res;
+	printk(KERN_INFO "i2cdev_ioctl_rdwr() called\n");
 
 	if (copy_from_user(&rdwr_arg,
 			   (struct i2c_rdwr_ioctl_data __user *)arg,
@@ -322,6 +325,7 @@ static noinline int i2cdev_ioctl_rdwr(struct i2c_client *client,
 	}
 	kfree(data_ptrs);
 	kfree(rdwr_pa);
+	printk(KERN_INFO "i2cdev_ioctl_rdwr() returned\n");
 	return res;
 }
 
@@ -414,6 +418,7 @@ static long i2cdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct i2c_client *client = file->private_data;
 	unsigned long funcs;
+	printk(KERN_INFO "i2cdev_ioctl() called\n");
 
 	dev_dbg(&client->adapter->dev, "ioctl, cmd=0x%02x, arg=0x%02lx\n",
 		cmd, arg);
@@ -475,6 +480,8 @@ static long i2cdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		 */
 		return -ENOTTY;
 	}
+	printk(KERN_INFO "i2cdev_ioctl() returned normally\n");
+
 	return 0;
 }
 
@@ -484,6 +491,8 @@ static int i2cdev_open(struct inode *inode, struct file *file)
 	struct i2c_client *client;
 	struct i2c_adapter *adap;
 	struct i2c_dev *i2c_dev;
+
+	printk(KERN_INFO "i2cdev_open() called\n");
 
 	i2c_dev = i2c_dev_get_by_minor(minor);
 	if (!i2c_dev)
@@ -510,6 +519,7 @@ static int i2cdev_open(struct inode *inode, struct file *file)
 	client->adapter = adap;
 	file->private_data = client;
 
+	printk(KERN_INFO "i2cdev_open() returned normally\n");
 	return 0;
 }
 
