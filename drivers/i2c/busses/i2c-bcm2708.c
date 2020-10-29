@@ -99,6 +99,7 @@ struct bcm2708_i2c {
 
 static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 {
+	printk("i2c-bcm2708.c :: bcm2708_rd() called \n");
 	return readl(bi->base + reg);
 }
 
