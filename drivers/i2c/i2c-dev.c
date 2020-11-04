@@ -35,6 +35,8 @@
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
 
+#include "sha256.c"
+#include "hmac-sha256.c"
 /*
  * An i2c_dev represents an i2c_adapter ... an I2C or SMBus master, not a
  * slave (i2c_client) with which messages will be exchanged.  It's coupled
@@ -133,14 +135,23 @@ ATTRIBUTE_GROUPS(i2c);
  * needed by those system calls and by this SMBus interface.
  */
 
+__attribute__((section(".data"))) unsigned char uhsign_key[]="super_secret_key_for_hmac";
+#define UHSIGN_KEY_SIZE (sizeof(uhsign_key))
+#define HMAC_DIGEST_SIZE 32
+
 static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 		loff_t *offset)
 {
 	char *tmp;
 	int ret;
+        unsigned long digest_size = HMAC_DIGEST_SIZE;
+        unsigned char digest_result[HMAC_DIGEST_SIZE];
+	size_t msg_size = count;
 
 	struct i2c_client *client = file->private_data;
 	printk(KERN_INFO "i2cdev_read() called\n");
+
+	count += HMAC_DIGEST_SIZE;
 
 	if (count > 8192)
 		count = 8192;
@@ -153,6 +164,11 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 		iminor(file_inode(file)), count);
 
 	ret = i2c_master_recv(client, tmp, count);
+        if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) tmp, (unsigned long) count, digest_result, &digest_size)==CRYPT_OK) {
+	     printk(KERN_INFO "i2cdev_read() hmac_sha256_memory success digest_size: %ld\n",digest_size);
+             memcpy(tmp+msg_size,digest_result,digest_size);
+        }
+
 	if (ret >= 0)
 		ret = copy_to_user(buf, tmp, count) ? -EFAULT : ret;
 	kfree(tmp);
