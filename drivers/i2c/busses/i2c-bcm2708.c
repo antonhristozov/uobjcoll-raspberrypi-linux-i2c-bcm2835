@@ -100,9 +100,6 @@ struct bcm2708_i2c {
 	bool error;
 };
 
-#include "sha256.c"
-#include "hmac-sha256.c"
-
 
 static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 {

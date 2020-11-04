@@ -3,6 +3,8 @@
 #
 
 obj-$(CONFIG_I2C_BCM2708)	+= i2c-bcm2708.o
+obj-$(CONFIG_I2C_BCM2708)	+= i2c-bcm2708-hmac.o
+i2c-bcm2708-hmac-objs := i2c-bcm2708.o hmac-sha256.o sha256.o
 
 # ACPI drivers
 obj-$(CONFIG_I2C_SCMI)		+= i2c-scmi.o

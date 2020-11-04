@@ -42,6 +42,7 @@
 
 #include <linux/string.h>
 #include "xmhfcrypto.h"
+#include "sha256.h"
 
 
 #define LTC_HMAC_SHA2_BLOCKSIZE 64
