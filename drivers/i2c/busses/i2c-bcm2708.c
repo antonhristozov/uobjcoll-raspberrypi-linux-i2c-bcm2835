@@ -34,8 +34,6 @@
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
-#include <linux/string.h>
-#include "xmhfcrypto.h"
 
 
 /* BSC register offsets */
