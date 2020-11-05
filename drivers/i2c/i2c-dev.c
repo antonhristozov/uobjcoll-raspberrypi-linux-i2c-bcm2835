@@ -133,7 +133,6 @@ ATTRIBUTE_GROUPS(i2c);
  * needed by those system calls and by this SMBus interface.
  */
 
-
 static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 		loff_t *offset)
 {
@@ -142,7 +141,6 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 
 	struct i2c_client *client = file->private_data;
 	printk(KERN_INFO "i2cdev_read() called\n");
-
 
 	if (count > 8192)
 		count = 8192;
@@ -155,7 +153,6 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 		iminor(file_inode(file)), count);
 
 	ret = i2c_master_recv(client, tmp, count);
-
 	if (ret >= 0)
 		ret = copy_to_user(buf, tmp, count) ? -EFAULT : ret;
 	kfree(tmp);

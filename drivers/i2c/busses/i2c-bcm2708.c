@@ -35,7 +35,6 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 
-
 /* BSC register offsets */
 #define BSC_C			0x00
 #define BSC_S			0x04
@@ -97,7 +96,6 @@ struct bcm2708_i2c {
 	int nmsgs;
 	bool error;
 };
-
 
 static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 {
