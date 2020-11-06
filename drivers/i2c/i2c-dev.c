@@ -446,7 +446,7 @@ static long i2cdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct i2c_client *client = file->private_data;
 	unsigned long funcs;
-	printk(KERN_INFO "i2cdev_ioctl() called\n");
+	printk(KERN_INFO "i2cdev_ioctl() called with argument: %lx \n",arg);
 #ifdef HMAC_DIGEST
         last_i2c_address = arg;
 #endif
