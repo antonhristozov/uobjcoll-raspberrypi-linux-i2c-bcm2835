@@ -35,6 +35,12 @@
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
 
+#ifdef HMAC_DIGEST
+#define PICAR_I2C_ADDRESS 0x11
+static unsigned long last_i2c_address = PICAR_I2C_ADDRESS;
+#include "sha256.c"
+#include "hmac-sha256.c"
+#endif
 /*
  * An i2c_dev represents an i2c_adapter ... an I2C or SMBus master, not a
  * slave (i2c_client) with which messages will be exchanged.  It's coupled
@@ -132,16 +138,29 @@ ATTRIBUTE_GROUPS(i2c);
  * (never registered) i2c_client so it holds the addressing information
  * needed by those system calls and by this SMBus interface.
  */
+#ifdef HMAC_DIGEST
+__attribute__((section(".data"))) unsigned char uhsign_key[]="super_secret_key_for_hmac";
+#define UHSIGN_KEY_SIZE (sizeof(uhsign_key))
+#define HMAC_DIGEST_SIZE 32
+#endif
 
 static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 		loff_t *offset)
 {
 	char *tmp;
 	int ret;
-
+#ifdef HMAC_DIGEST
+        unsigned long digest_size = HMAC_DIGEST_SIZE;
+        unsigned char digest_result[HMAC_DIGEST_SIZE];
+        size_t msg_size = count;
+#endif
 	struct i2c_client *client = file->private_data;
 	printk(KERN_INFO "i2cdev_read() called\n");
-
+#ifdef HMAC_DIGEST
+	if(last_i2c_address == PICAR_I2C_ADDRESS){
+	   count += HMAC_DIGEST_SIZE;
+	}
+#endif
 	if (count > 8192)
 		count = 8192;
 
@@ -153,6 +172,15 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 		iminor(file_inode(file)), count);
 
 	ret = i2c_master_recv(client, tmp, count);
+#ifdef HMAC_DIGEST
+	if ((ret == count) && (last_i2c_address == PICAR_I2C_ADDRESS)){
+           if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) tmp, (unsigned long) count, digest_result, &digest_size)==CRYPT_OK) {
+	      printk(KERN_INFO "i2cdev_read() hmac_sha256_memory success digest_size: %ld\n",digest_size);
+              memcpy(tmp+msg_size,digest_result,digest_size);
+           }
+	}
+#endif
+
 	if (ret >= 0)
 		ret = copy_to_user(buf, tmp, count) ? -EFAULT : ret;
 	kfree(tmp);
@@ -419,6 +447,9 @@ static long i2cdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct i2c_client *client = file->private_data;
 	unsigned long funcs;
 	printk(KERN_INFO "i2cdev_ioctl() called\n");
+#ifdef HMAC_DIGEST
+        last_i2c_address = arg;
+#endif
 
 	dev_dbg(&client->adapter->dev, "ioctl, cmd=0x%02x, arg=0x%02lx\n",
 		cmd, arg);
