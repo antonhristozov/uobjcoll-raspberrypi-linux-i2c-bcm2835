@@ -212,6 +212,7 @@ static int vmap_page_range(unsigned long start, unsigned long end,
 	flush_cache_vmap(start, end);
 	return ret;
 }
+EXPORT_SYMBOL(vmap_page_range);
 
 int is_vmalloc_or_module_addr(const void *x)
 {
@@ -475,6 +476,7 @@ overflow:
 	kfree(va);
 	return ERR_PTR(-EBUSY);
 }
+EXPORT_SYMBOL_GPL(alloc_vmap_area);
 
 static void __free_vmap_area(struct vmap_area *va)
 {
@@ -931,7 +933,7 @@ static void purge_fragmented_blocks_allcpus(void)
 		purge_fragmented_blocks(cpu);
 }
 
-static void *vb_alloc(unsigned long size, gfp_t gfp_mask)
+void *vb_alloc(unsigned long size, gfp_t gfp_mask)
 {
 	struct vmap_block_queue *vbq;
 	struct vmap_block *vb;
@@ -983,6 +985,7 @@ static void *vb_alloc(unsigned long size, gfp_t gfp_mask)
 
 	return vaddr;
 }
+EXPORT_SYMBOL_GPL(vb_alloc);
 
 static void vb_free(const void *addr, unsigned long size)
 {

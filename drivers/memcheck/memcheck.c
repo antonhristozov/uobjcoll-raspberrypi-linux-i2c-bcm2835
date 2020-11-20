@@ -12,6 +12,7 @@
 #include <linux/io.h>
 #include <linux/mm.h>
 #include <linux/pagemap.h>
+#include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 
 MODULE_LICENSE("GPL");
@@ -23,7 +24,35 @@ static struct page** pages;
 static unsigned long npages;
 #define MEM_SIZE (64*1024*1024)
 
-struct vmap_area *find_vmap_area(unsigned long addr);
+// Other defines we need
+#define VMAP_MAX_ALLOC          BITS_PER_LONG   /* 256K with 4K pages */
+// Supplementary funct
+
+int vmap_page_range(unsigned long start, unsigned long end,
+                           pgprot_t prot, struct page **pages);
+
+struct vmap_area *alloc_vmap_area(unsigned long size,       
+                                unsigned long align,
+                                unsigned long vstart, unsigned long vend,
+                                int node, gfp_t gfp_mask);
+
+void *vb_alloc(unsigned long size, gfp_t gfp_mask);
+
+void *vm_map_ram_virt_hole(struct page **pages, unsigned int count, int node, pgprot_t prot)
+{
+        unsigned long size = count << PAGE_SHIFT;
+        unsigned long addr;
+        void *mem;
+	addr = 0xfae00000; 
+	mem = (void *)addr;
+	size = 64*1024*1024;
+        if (vmap_page_range(addr, addr + size, prot, pages) < 0) {
+                vm_unmap_ram(mem, count);
+                return NULL;
+        }
+        return mem;
+}
+
 
 static int __init memcheck_init(void){
    int nid;
@@ -38,7 +67,7 @@ static int __init memcheck_init(void){
 
    nid = page_to_nid(pages[0]); // Remap on the same NUMA node.
 
-   remapped = vm_map_ram(pages, npages, nid, PAGE_KERNEL);
+   remapped = (char *) vm_map_ram_virt_hole(pages, npages, nid, PAGE_KERNEL);
    if(remapped != NULL){
       printk(KERN_INFO "vm_map_range() succeeded %p\n",remapped);
    }
@@ -61,7 +90,6 @@ static int __init memcheck_init(void){
 
 static void __exit memcheck_exit(void){
    int i;
-   vm_unmap_ram(remapped,npages);
    for(i=0;i<npages;i++){
       page_cache_release(pages[i]); /* Deallocate each page */
    }
