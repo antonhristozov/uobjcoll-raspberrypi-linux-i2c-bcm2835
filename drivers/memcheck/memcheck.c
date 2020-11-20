@@ -45,7 +45,7 @@ void *vm_map_ram_virt_hole(struct page **pages, unsigned int count, int node, pg
         void *mem;
 	addr = 0xfae00000; 
 	mem = (void *)addr;
-	size = 64*1024*1024;
+	size = MEM_SIZE;
         if (vmap_page_range(addr, addr + size, prot, pages) < 0) {
                 vm_unmap_ram(mem, count);
                 return NULL;
@@ -75,11 +75,13 @@ static int __init memcheck_init(void){
       printk(KERN_INFO "vm_map_range() failed\n");
    }
    /* Let's prove that it is contiguous by going to the end of the space linearly */
-   memcpy(remapped,"memcheck123\0",12);
-   memcpy(remapped+MEM_SIZE-12,"memcheck123\0",12);
+   printk(KERN_INFO "memory address start %p\n",remapped);
+   printk(KERN_INFO "memory address end minus 13 %p\n",remapped+MEM_SIZE-13);
+   memcpy(remapped,"memcheck_start\0",15);
+   memcpy(remapped+MEM_SIZE-13,"memcheck_end\0",13);
    printk(KERN_INFO "memcheck module loaded.\n");
-   printk(KERN_INFO "memory contents remapped: %s\n",remapped);
-   printk(KERN_INFO "memory contents remapped: %s\n",remapped+MEM_SIZE-12);
+   printk(KERN_INFO "memory contents remapped:  %s\n",remapped);
+   printk(KERN_INFO "memory contents remapped end minus 13:  %s\n",remapped+MEM_SIZE-13);
    printk(KERN_INFO "memory size: %d\n",MEM_SIZE);
    printk(KERN_INFO "npages: %ld\n",npages);
    printk(KERN_INFO "page size: %ld\n",PAGE_SIZE);
