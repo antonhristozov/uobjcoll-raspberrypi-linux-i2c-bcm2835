@@ -75,13 +75,16 @@ static int __init memcheck_init(void){
       printk(KERN_INFO "vm_map_range() failed\n");
    }
    /* Let's prove that it is contiguous by going to the end of the space linearly */
-   printk(KERN_INFO "memory address start %p\n",remapped);
-   printk(KERN_INFO "memory address end minus 13 %p\n",remapped+MEM_SIZE-13);
-   memcpy(remapped,"memcheck_start\0",15);
-   memcpy(remapped+MEM_SIZE-13,"memcheck_end\0",13);
    printk(KERN_INFO "memcheck module loaded.\n");
-   printk(KERN_INFO "memory contents remapped:  %s\n",remapped);
-   printk(KERN_INFO "memory contents remapped end minus 13:  %s\n",remapped+MEM_SIZE-13);
+   printk(KERN_INFO "memory address start %p\n",remapped);
+   printk(KERN_INFO "memory address middle %p\n",remapped+MEM_SIZE/2);
+   printk(KERN_INFO "memory address end - 13 %p\n",remapped+MEM_SIZE-13);
+   memcpy(remapped,"memcheck_start\0",15);
+   memcpy(remapped + MEM_SIZE/2,"memcheck_middle\0",16);
+   memcpy(remapped+MEM_SIZE-13,"memcheck_end\0",13);
+   printk(KERN_INFO "memory contents remapped start:  %s\n",remapped);
+   printk(KERN_INFO "memory contents remapped middle:  %s\n",remapped + MEM_SIZE/2);
+   printk(KERN_INFO "memory contents remapped end:  %s\n",remapped+MEM_SIZE-13);
    printk(KERN_INFO "memory size: %d\n",MEM_SIZE);
    printk(KERN_INFO "npages: %ld\n",npages);
    printk(KERN_INFO "page size: %ld\n",PAGE_SIZE);
@@ -95,6 +98,9 @@ static void __exit memcheck_exit(void){
    for(i=0;i<npages;i++){
       page_cache_release(pages[i]); /* Deallocate each page */
    }
+   // The following unmapping does not work since we are not allocating within 
+   // the expected reange for vmalloc 
+   //vm_unmap_ram(remapped,npages);
 
    printk(KERN_INFO "memcheck module unloaded.\n");
 }
