@@ -1,0 +1,4 @@
+config MEMCHECK
+   tristate 'MemCheck'
+   default m
+   help
