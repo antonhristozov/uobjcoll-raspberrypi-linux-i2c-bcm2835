@@ -155,7 +155,6 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
         size_t msg_size = count;
 #endif
 	struct i2c_client *client = file->private_data;
-	printk(KERN_INFO "i2cdev_read() called\n");
 #ifdef HMAC_DIGEST
 	if(last_i2c_address == PICAR_I2C_ADDRESS){
 	   count += HMAC_DIGEST_SIZE;
@@ -168,15 +167,20 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 	if (tmp == NULL)
 		return -ENOMEM;
 
+#ifdef HMAC_DIGEST
+	ret = i2c_master_recv(client, tmp, msg_size);
+	pr_debug("i2c-dev: i2c-%d reading %zu bytes.\n",
+		iminor(file_inode(file)), msg_size);
+#else
+	ret = i2c_master_recv(client, tmp, count);
 	pr_debug("i2c-dev: i2c-%d reading %zu bytes.\n",
 		iminor(file_inode(file)), count);
-
-	ret = i2c_master_recv(client, tmp, count);
+#endif
 #ifdef HMAC_DIGEST
-	if ((ret == count) && (last_i2c_address == PICAR_I2C_ADDRESS)){
-           if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) tmp, (unsigned long) count, digest_result, &digest_size)==CRYPT_OK) {
-	      printk(KERN_INFO "i2cdev_read() hmac_sha256_memory success digest_size: %ld\n",digest_size);
+	if ((ret == msg_size) && (last_i2c_address == PICAR_I2C_ADDRESS)){
+           if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) tmp, (unsigned long) msg_size, digest_result, &digest_size)==CRYPT_OK) {
               memcpy(tmp+msg_size,digest_result,digest_size);
+	      ret += HMAC_DIGEST_SIZE;
            }
 	}
 #endif
@@ -184,7 +188,6 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 	if (ret >= 0)
 		ret = copy_to_user(buf, tmp, count) ? -EFAULT : ret;
 	kfree(tmp);
-	printk(KERN_INFO "i2cdev_read() returned normally\n");
 	return ret;
 }
 
@@ -446,7 +449,6 @@ static long i2cdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct i2c_client *client = file->private_data;
 	unsigned long funcs;
-	printk(KERN_INFO "i2cdev_ioctl() called with argument: %lx \n",arg);
 #ifdef HMAC_DIGEST
         last_i2c_address = arg;
 #endif
@@ -511,7 +513,6 @@ static long i2cdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		 */
 		return -ENOTTY;
 	}
-	printk(KERN_INFO "i2cdev_ioctl() returned normally\n");
 
 	return 0;
 }
@@ -523,7 +524,6 @@ static int i2cdev_open(struct inode *inode, struct file *file)
 	struct i2c_adapter *adap;
 	struct i2c_dev *i2c_dev;
 
-	printk(KERN_INFO "i2cdev_open() called\n");
 
 	i2c_dev = i2c_dev_get_by_minor(minor);
 	if (!i2c_dev)
@@ -550,7 +550,6 @@ static int i2cdev_open(struct inode *inode, struct file *file)
 	client->adapter = adap;
 	file->private_data = client;
 
-	printk(KERN_INFO "i2cdev_open() returned normally\n");
 	return 0;
 }
 

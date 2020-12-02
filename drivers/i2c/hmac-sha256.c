@@ -43,6 +43,7 @@
 #include <linux/string.h>
 #include "xmhfcrypto.h"
 #include "sha256.h"
+#include "hmac-sha256.h"
 
 
 #define LTC_HMAC_SHA2_BLOCKSIZE 64
@@ -55,7 +56,7 @@
    @param keylen   The length of the secret key (octets)
    @return CRYPT_OK if successful
 **/
-static inline int hmac_sha256_init(hmac_state *hmac, const unsigned char *key, unsigned long keylen) {
+int hmac_sha256_init(hmac_state *hmac, const unsigned char *key, unsigned long keylen) {
     unsigned char buf[LTC_HMAC_SHA2_BLOCKSIZE];
     unsigned long hashsize;
     unsigned long i, z;
@@ -115,7 +116,7 @@ done:
   @param inlen   The length of the data to HMAC (octets)
   @return CRYPT_OK if successful
 **/
-static inline int hmac_sha256_process(hmac_state *hmac, const unsigned char *in, unsigned long inlen) {
+int hmac_sha256_process(hmac_state *hmac, const unsigned char *in, unsigned long inlen) {
     LTC_ARGCHK(hmac != NULL);
     LTC_ARGCHK(in != NULL);
     return sha256_process(&hmac->md, in, inlen);
@@ -130,7 +131,7 @@ static inline int hmac_sha256_process(hmac_state *hmac, const unsigned char *in,
                   authentication tag
    @return CRYPT_OK if successful
 **/
-static inline int hmac_sha256_done(hmac_state *hmac, unsigned char *out, unsigned long *outlen) {
+int hmac_sha256_done(hmac_state *hmac, unsigned char *out, unsigned long *outlen) {
     unsigned char buf[LTC_HMAC_SHA2_BLOCKSIZE], isha[32];
     unsigned long hashsize, i;
     int err;
@@ -180,7 +181,7 @@ LBL_ERR:
    @param outlen    [in/out] Max size and resulting size of authentication tag
    @return CRYPT_OK if successful
 **/
-static inline int hmac_sha256_memory(const unsigned char *key,  unsigned long keylen,
+int hmac_sha256_memory(const unsigned char *key,  unsigned long keylen,
                        const unsigned char *in,   unsigned long inlen,
                        unsigned char *out,  unsigned long *outlen) {
     hmac_state hmac;

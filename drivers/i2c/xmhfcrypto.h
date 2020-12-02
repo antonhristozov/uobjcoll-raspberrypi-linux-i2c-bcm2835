@@ -34,6 +34,7 @@
 
 #ifndef __XMHFCRYPTO_H__
 #define __XMHFCRYPTO_H__
+//#include <stdint.h>
 #include <stdarg.h>
 
 //tomcrypt.h

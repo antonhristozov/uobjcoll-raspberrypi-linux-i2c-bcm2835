@@ -35,6 +35,7 @@
 
 #include <linux/string.h>
 #include "xmhfcrypto.h"
+#include "sha256.h"
 
 /* Various logical functions */
 #define Ch(x,y,z)       (z ^ (x & (y ^ z)))
@@ -47,7 +48,7 @@
 #define Gamma1(x)       (S(x, 17) ^ S(x, 19) ^ R(x, 10))
 
 
-static inline int sha256_compress(hash_state * md, const unsigned char *buf) {
+int sha256_compress(hash_state * md, const unsigned char *buf) {
   uint32_t S[8], W[64], t0, t1;
   int i;
 
@@ -151,7 +152,7 @@ static inline int sha256_compress(hash_state * md, const unsigned char *buf) {
    @param md   The hash state you wish to initialize
    @return CRYPT_OK if successful
 */
-static inline int sha256_init(hash_state * md) {
+int sha256_init(hash_state * md) {
   LTC_ARGCHK(md != NULL);
 
   md->sha256.curlen = 0;
@@ -174,7 +175,7 @@ static inline int sha256_init(hash_state * md) {
    @param inlen  The length of the data (octets)
    @return CRYPT_OK if successful
 */
-static inline int sha256_process (hash_state * md, const unsigned char *in,
+int sha256_process (hash_state * md, const unsigned char *in,
 		    unsigned long inlen) {
   unsigned long n;
   int           err;
@@ -218,7 +219,7 @@ static inline int sha256_process (hash_state * md, const unsigned char *in,
    @param out [out] The destination of the hash (32 bytes)
    @return CRYPT_OK if successful
 */
-static inline int sha256_done(hash_state * md, unsigned char *out) {
+int sha256_done(hash_state * md, unsigned char *out) {
   int i;
 
   LTC_ARGCHK(md  != NULL);
@@ -266,7 +267,7 @@ static inline int sha256_done(hash_state * md, unsigned char *out) {
   Self-test the hash
   @return CRYPT_OK if successful, CRYPT_NOP if self-tests have been disabled
 */
-static inline int sha256_test(void) {
+int sha256_test(void) {
   static const struct {
     const char *msg;
     unsigned char hash[32];
@@ -307,7 +308,7 @@ static inline int sha256_test(void) {
   @return CRYPT_OK if successful
 */
 //int hash_memory(int hash, const unsigned char *in, unsigned long inlen, unsigned char *out, unsigned long *outlen)
-static inline int sha256_memory(const unsigned char *in, unsigned long inlen,
+int sha256_memory(const unsigned char *in, unsigned long inlen,
 		  unsigned char *out, unsigned long *outlen) {
   hash_state md;
   int err;
@@ -344,7 +345,7 @@ LBL_ERR:
   @param ...    tuples of (data,len) pairs to hash, terminated with a (NULL,x) (x=don't care)
   @return CRYPT_OK if successful
 */
-static inline int sha256_memory_multi(unsigned char *out, unsigned long *outlen,
+int sha256_memory_multi(unsigned char *out, unsigned long *outlen,
                         const unsigned char *in, unsigned long inlen, ...) {
   hash_state           md;
   int                  err;
