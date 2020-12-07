@@ -99,13 +99,11 @@ struct bcm2708_i2c {
 
 static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 {
-	printk(KERN_INFO "i2c-bcm2708.c :: bcm2708_rd() called \n");
 	return readl(bi->base + reg);
 }
 
 static inline void bcm2708_wr(struct bcm2708_i2c *bi, unsigned reg, u32 val)
 {
-	printk(KERN_INFO "i2c-bcm2708.c :: bcm2708_wr() called \n");
 	writel(val, bi->base + reg);
 }
 
@@ -133,7 +131,6 @@ static inline int bcm2708_bsc_setup(struct bcm2708_i2c *bi)
 	u32 c = BSC_C_I2CEN | BSC_C_INTD | BSC_C_ST | BSC_C_CLEAR_1;
 	int wait_loops = I2C_WAIT_LOOP_COUNT;
 
-	printk(KERN_INFO "i2c-bcm2708.c :: bcm2708_bsc_setup() called \n");
 	/* Can't call clk_get_rate as it locks a mutex and here we are spinlocked.
 	 * Use the value that we cached in the probe.
 	 */
@@ -267,7 +264,6 @@ static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
 	unsigned long flags;
 	int ret;
 
-	printk(KERN_INFO "i2c-bcm2708.c :: bcm2708_i2c_master_xfer() called \n");
 	spin_lock_irqsave(&bi->lock, flags);
 
 	reinit_completion(&bi->done);
@@ -326,7 +322,6 @@ static int bcm2708_i2c_probe(struct platform_device *pdev)
 	u32 cdiv, clk_tout;
 	u32 baud;
 
-	printk(KERN_INFO "i2c-bcm2708.c :: bcm2708_i2c_probe() called \n");
 
 	baud = CONFIG_I2C_BCM2708_BAUDRATE;
 
