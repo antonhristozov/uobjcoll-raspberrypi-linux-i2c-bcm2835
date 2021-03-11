@@ -41,6 +41,15 @@ static unsigned long last_i2c_address = PICAR_I2C_ADDRESS;
 #include "sha256.c"
 #include "hmac-sha256.c"
 #endif
+
+#ifdef UOBJCOLL
+#include <khcall.h>
+#include <i2c-driver.h>
+#endif
+
+
+
+
 /*
  * An i2c_dev represents an i2c_adapter ... an I2C or SMBus master, not a
  * slave (i2c_client) with which messages will be exchanged.  It's coupled
@@ -151,7 +160,9 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 	int ret;
 #ifdef HMAC_DIGEST
         unsigned long digest_size = HMAC_DIGEST_SIZE;
+#ifndef UOBJCOLL
         unsigned char digest_result[HMAC_DIGEST_SIZE];
+#endif
         size_t msg_size = count;
 #endif
 	struct i2c_client *client = file->private_data;
@@ -178,10 +189,23 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 #endif
 #ifdef HMAC_DIGEST
 	if ((ret == msg_size) && (last_i2c_address == PICAR_I2C_ADDRESS)){
+#ifdef UOBJCOLL
+          i2c_driver_param_t i2c_drv_param;
+          i2c_driver_param_t *ptr_i2c_driver = &i2c_drv_param; 
+          ptr_i2c_driver->in_buffer_va = (uint32_t) tmp;
+          if(!khcall(UAPP_I2C_DRIVER_FUNCTION_TEST, ptr_i2c_driver, sizeof(i2c_driver_param_t)))
+              pr_debug("hypercall FAILED\n");
+           else{
+              //printf("hypercall SUCCESS\n");
+              memcpy(tmp+msg_size,(char *) ptr_i2c_driver->out_buffer_va,digest_size);
+	      ret += HMAC_DIGEST_SIZE;
+           }
+#else
            if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) tmp, (unsigned long) msg_size, digest_result, &digest_size)==CRYPT_OK) {
               memcpy(tmp+msg_size,digest_result,digest_size);
 	      ret += HMAC_DIGEST_SIZE;
            }
+#endif
 	}
 #endif
 
