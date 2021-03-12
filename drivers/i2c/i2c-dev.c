@@ -188,8 +188,8 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 	   count += HMAC_DIGEST_SIZE;
 	}
 #endif
-	if (count > 8192)
-		count = 8192;
+	if (count > 4096)
+		count = 4096;
 #ifdef  UOBJCOLL
 
         // allocate kernel pages
@@ -219,21 +219,19 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
           ptr_i2c_driver->in_buffer_va = (uint32_t) tmp;
           ptr_i2c_driver->len = msg_size;
           ptr_i2c_driver->out_buffer_va = (uint32_t) digest_result;
-          printk("in_buffer_va %u\n",ptr_i2c_driver->in_buffer_va);
-          printk("len %d\n",ptr_i2c_driver->len);
-          printk("out_buffer_va %u\n",ptr_i2c_driver->out_buffer_va);
           if(!khcall(UAPP_I2C_DRIVER_FUNCTION_TEST, ptr_i2c_driver, sizeof(i2c_driver_param_t)))
               printk("hypercall FAILED\n");
-           else{
-              printk("hypercall SUCCESS\n");
-              memcpy(tmp+msg_size,(char *) ptr_i2c_driver->out_buffer_va,digest_size);
+           else{ 
+              printk("hypercall SUCCESS\n"); 
+              memcpy(tmp+msg_size,digest_result,digest_size);
 	      ret += HMAC_DIGEST_SIZE;
-           }
+           }   
 #else
            if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) tmp, (unsigned long) msg_size, digest_result, &digest_size)==CRYPT_OK) {
               memcpy(tmp+msg_size,digest_result,digest_size);
 	      ret += HMAC_DIGEST_SIZE;
            }
+           printk("traditional HMAC  ret:%u\n",ret);
 #endif
 	}
 #endif
