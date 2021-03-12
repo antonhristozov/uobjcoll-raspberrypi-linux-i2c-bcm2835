@@ -160,9 +160,7 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 	int ret;
 #ifdef HMAC_DIGEST
         unsigned long digest_size = HMAC_DIGEST_SIZE;
-#ifndef UOBJCOLL
         unsigned char digest_result[HMAC_DIGEST_SIZE];
-#endif
         size_t msg_size = count;
 #endif
 	struct i2c_client *client = file->private_data;
@@ -193,6 +191,8 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
           i2c_driver_param_t i2c_drv_param;
           i2c_driver_param_t *ptr_i2c_driver = &i2c_drv_param; 
           ptr_i2c_driver->in_buffer_va = (uint32_t) tmp;
+          ptr_i2c_driver->len = msg_size;
+          ptr_i2c_driver->in_buffer_va = (uint32_t) digest_result;
           if(!khcall(UAPP_I2C_DRIVER_FUNCTION_TEST, ptr_i2c_driver, sizeof(i2c_driver_param_t)))
               pr_debug("hypercall FAILED\n");
            else{
