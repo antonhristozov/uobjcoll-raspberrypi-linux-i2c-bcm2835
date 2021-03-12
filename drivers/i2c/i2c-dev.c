@@ -34,6 +34,15 @@
 #include <linux/i2c-dev.h>
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
+#include <linux/types.h>
+#include <linux/string.h>
+#include <linux/kernel.h>
+#include <linux/numa.h>
+#include <linux/gfp.h>
+#include <linux/mm.h>
+#include <linux/highmem.h>
+
+
 
 #ifdef HMAC_DIGEST
 #define PICAR_I2C_ADDRESS 0x11
@@ -154,7 +163,7 @@ __attribute__((section(".data"))) unsigned char uhsign_key[]="super_secret_key_f
 #endif
 
 #ifdef UOBJCOLL
-static i2c_driver_param_t i2c_drv_param; 
+__attribute__((section(".data"))) __attribute__((aligned(4096))) i2c_driver_param_t i2c_drv_param;
 #endif
 
 static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
@@ -162,9 +171,15 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 {
 	char *tmp;
 	int ret;
-#ifdef HMAC_DIGEST
         unsigned long digest_size = HMAC_DIGEST_SIZE;
+#ifdef HMAC_DIGEST
+#ifdef  UOBJCOLL
+        struct page *k_page1;
+        struct page *k_page2;
+        unsigned char *digest_result;
+#else
         unsigned char digest_result[HMAC_DIGEST_SIZE];
+#endif
         size_t msg_size = count;
 #endif
 	struct i2c_client *client = file->private_data;
@@ -175,10 +190,18 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 #endif
 	if (count > 8192)
 		count = 8192;
+#ifdef  UOBJCOLL
 
+        // allocate kernel pages
+        k_page1 = alloc_page(GFP_KERNEL | __GFP_ZERO);
+        digest_result = (void *)page_address(k_page1);
+        k_page2 = alloc_page(GFP_KERNEL | __GFP_ZERO);
+        tmp = (void *)page_address(k_page2);
+#else
 	tmp = kmalloc(count, GFP_KERNEL);
 	if (tmp == NULL)
 		return -ENOMEM;
+#endif
 
 #ifdef HMAC_DIGEST
 	ret = i2c_master_recv(client, tmp, msg_size);
@@ -196,9 +219,9 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
           ptr_i2c_driver->in_buffer_va = (uint32_t) tmp;
           ptr_i2c_driver->len = msg_size;
           ptr_i2c_driver->out_buffer_va = (uint32_t) digest_result;
-          printk("in_buffer_va %d\n",ptr_i2c_driver->in_buffer_va);
+          printk("in_buffer_va %u\n",ptr_i2c_driver->in_buffer_va);
           printk("len %d\n",ptr_i2c_driver->len);
-          printk("out_buffer_va %d\n",ptr_i2c_driver->out_buffer_va);
+          printk("out_buffer_va %u\n",ptr_i2c_driver->out_buffer_va);
           if(!khcall(UAPP_I2C_DRIVER_FUNCTION_TEST, ptr_i2c_driver, sizeof(i2c_driver_param_t)))
               printk("hypercall FAILED\n");
            else{
@@ -217,7 +240,13 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 
 	if (ret >= 0)
 		ret = copy_to_user(buf, tmp, count) ? -EFAULT : ret;
+#ifdef UOBJCOLL
+        // free kernel pages
+        __free_page(k_page1);
+        __free_page(k_page2);
+#else
 	kfree(tmp);
+#endif
 	return ret;
 }
 
