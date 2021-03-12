@@ -153,6 +153,10 @@ __attribute__((section(".data"))) unsigned char uhsign_key[]="super_secret_key_f
 #define HMAC_DIGEST_SIZE 32
 #endif
 
+#ifdef UOBJCOLL
+static i2c_driver_param_t i2c_drv_param; 
+#endif
+
 static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 		loff_t *offset)
 {
@@ -188,15 +192,17 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 #ifdef HMAC_DIGEST
 	if ((ret == msg_size) && (last_i2c_address == PICAR_I2C_ADDRESS)){
 #ifdef UOBJCOLL
-          i2c_driver_param_t i2c_drv_param;
           i2c_driver_param_t *ptr_i2c_driver = &i2c_drv_param; 
           ptr_i2c_driver->in_buffer_va = (uint32_t) tmp;
           ptr_i2c_driver->len = msg_size;
-          ptr_i2c_driver->in_buffer_va = (uint32_t) digest_result;
+          ptr_i2c_driver->out_buffer_va = (uint32_t) digest_result;
+          printk("in_buffer_va %d\n",ptr_i2c_driver->in_buffer_va);
+          printk("len %d\n",ptr_i2c_driver->len);
+          printk("out_buffer_va %d\n",ptr_i2c_driver->out_buffer_va);
           if(!khcall(UAPP_I2C_DRIVER_FUNCTION_TEST, ptr_i2c_driver, sizeof(i2c_driver_param_t)))
-              pr_debug("hypercall FAILED\n");
+              printk("hypercall FAILED\n");
            else{
-              //printf("hypercall SUCCESS\n");
+              printk("hypercall SUCCESS\n");
               memcpy(tmp+msg_size,(char *) ptr_i2c_driver->out_buffer_va,digest_size);
 	      ret += HMAC_DIGEST_SIZE;
            }
