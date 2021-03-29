@@ -34,6 +34,15 @@
 #include <linux/i2c-dev.h>
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
+#include <linux/types.h>
+#include <linux/string.h>
+#include <linux/kernel.h>
+#include <linux/numa.h>
+#include <linux/gfp.h>
+#include <linux/mm.h>
+#include <linux/highmem.h>
+
+
 
 #ifdef HMAC_DIGEST
 #define PICAR_I2C_ADDRESS 0x11
@@ -41,6 +50,15 @@ static unsigned long last_i2c_address = PICAR_I2C_ADDRESS;
 #include "sha256.c"
 #include "hmac-sha256.c"
 #endif
+
+#ifdef UOBJCOLL
+#include <khcall.h>
+#include <i2c-driver.h>
+#endif
+
+
+
+
 /*
  * An i2c_dev represents an i2c_adapter ... an I2C or SMBus master, not a
  * slave (i2c_client) with which messages will be exchanged.  It's coupled
@@ -144,14 +162,24 @@ __attribute__((section(".data"))) unsigned char uhsign_key[]="super_secret_key_f
 #define HMAC_DIGEST_SIZE 32
 #endif
 
+#ifdef UOBJCOLL
+__attribute__((section(".data"))) __attribute__((aligned(4096))) i2c_driver_param_t i2c_drv_param;
+#endif
+
 static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 		loff_t *offset)
 {
 	char *tmp;
 	int ret;
-#ifdef HMAC_DIGEST
         unsigned long digest_size = HMAC_DIGEST_SIZE;
+#ifdef HMAC_DIGEST
+#ifdef  UOBJCOLL
+        struct page *k_page1;
+        struct page *k_page2;
+        unsigned char *digest_result;
+#else
         unsigned char digest_result[HMAC_DIGEST_SIZE];
+#endif
         size_t msg_size = count;
 #endif
 	struct i2c_client *client = file->private_data;
@@ -160,12 +188,20 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 	   count += HMAC_DIGEST_SIZE;
 	}
 #endif
-	if (count > 8192)
-		count = 8192;
+	if (count > 4096)
+		count = 4096;
+#ifdef  UOBJCOLL
 
+        // allocate kernel pages
+        k_page1 = alloc_page(GFP_KERNEL | __GFP_ZERO);
+        digest_result = (void *)page_address(k_page1);
+        k_page2 = alloc_page(GFP_KERNEL | __GFP_ZERO);
+        tmp = (void *)page_address(k_page2);
+#else
 	tmp = kmalloc(count, GFP_KERNEL);
 	if (tmp == NULL)
 		return -ENOMEM;
+#endif
 
 #ifdef HMAC_DIGEST
 	ret = i2c_master_recv(client, tmp, msg_size);
@@ -178,16 +214,37 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 #endif
 #ifdef HMAC_DIGEST
 	if ((ret == msg_size) && (last_i2c_address == PICAR_I2C_ADDRESS)){
+#ifdef UOBJCOLL
+          i2c_driver_param_t *ptr_i2c_driver = &i2c_drv_param; 
+          ptr_i2c_driver->in_buffer_va = (uint32_t) tmp;
+          ptr_i2c_driver->len = msg_size;
+          ptr_i2c_driver->out_buffer_va = (uint32_t) digest_result;
+          if(!khcall(UAPP_I2C_DRIVER_FUNCTION_TEST, ptr_i2c_driver, sizeof(i2c_driver_param_t)))
+              printk("hypercall FAILED\n");
+           else{ 
+              printk("hypercall SUCCESS\n"); 
+              memcpy(tmp+msg_size,digest_result,digest_size);
+	      ret += HMAC_DIGEST_SIZE;
+           }   
+#else
            if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) tmp, (unsigned long) msg_size, digest_result, &digest_size)==CRYPT_OK) {
               memcpy(tmp+msg_size,digest_result,digest_size);
 	      ret += HMAC_DIGEST_SIZE;
            }
+           printk("traditional HMAC  ret:%u\n",ret);
+#endif
 	}
 #endif
 
 	if (ret >= 0)
 		ret = copy_to_user(buf, tmp, count) ? -EFAULT : ret;
+#ifdef UOBJCOLL
+        // free kernel pages
+        __free_page(k_page1);
+        __free_page(k_page2);
+#else
 	kfree(tmp);
+#endif
 	return ret;
 }
 
