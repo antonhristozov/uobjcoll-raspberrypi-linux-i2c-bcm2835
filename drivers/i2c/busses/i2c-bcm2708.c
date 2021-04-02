@@ -293,7 +293,6 @@ static irqreturn_t bcm2708_i2c_interrupt(int irq, void *dev_id)
 
 	s = bcm2708_rd(bi, BSC_S);
 
-
 	if (s & (BSC_S_CLKT | BSC_S_ERR)) {
 		bcm2708_bsc_reset(bi);
 		bi->error = true;
@@ -346,7 +345,6 @@ early_exit:
 }
 
 #endif
-
 static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
 	struct i2c_msg *msgs, int num)
 {
