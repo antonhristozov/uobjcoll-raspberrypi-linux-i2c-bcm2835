@@ -293,10 +293,8 @@ static irqreturn_t bcm2708_i2c_interrupt(int irq, void *dev_id)
 
 	s = bcm2708_rd(bi, BSC_S);
 
-        printk(KERN_INFO "bcm2708_i2c_interrupt::Read status register \n");
 
 	if (s & (BSC_S_CLKT | BSC_S_ERR)) {
-                printk(KERN_INFO "bcm2708_i2c_interrupt:: #1 \n");
 		bcm2708_bsc_reset(bi);
 		bi->error = true;
 
@@ -305,7 +303,6 @@ static irqreturn_t bcm2708_i2c_interrupt(int irq, void *dev_id)
 		/* wake up our bh */
 		complete(&bi->done);
 	} else if (s & BSC_S_DONE) {
-                printk(KERN_INFO "bcm2708_i2c_interrupt:: #2 \n");
 		bi->nmsgs--;
 
 		if (bi->msg->flags & I2C_M_RD) {
@@ -335,13 +332,10 @@ static irqreturn_t bcm2708_i2c_interrupt(int irq, void *dev_id)
 			complete(&bi->done);
 		}
 	} else if (s & BSC_S_TXW) {
-                printk(KERN_INFO "bcm2708_i2c_interrupt:: #3 \n");
 		bcm2708_bsc_fifo_fill(bi);
 	} else if (s & BSC_S_RXR) {
-                printk(KERN_INFO "bcm2708_i2c_interrupt:: #4 \n");
 		bcm2708_bsc_fifo_drain(bi);
 	} else {
-                printk(KERN_INFO "bcm2708_i2c_interrupt:: #5 \n");
 		handled = false;
 	}
 
