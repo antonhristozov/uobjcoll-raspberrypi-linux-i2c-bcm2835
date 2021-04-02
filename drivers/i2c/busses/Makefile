@@ -3,6 +3,7 @@
 #
 
 obj-$(CONFIG_I2C_BCM2708)	+= i2c-bcm2708.o
+#CFLAGS_i2c-bcm2708.o := -DUOBJCOLL
 
 # ACPI drivers
 obj-$(CONFIG_I2C_SCMI)		+= i2c-scmi.o

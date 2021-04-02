@@ -222,7 +222,7 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
           if(!khcall(UAPP_I2C_DRIVER_FUNCTION_TEST, ptr_i2c_driver, sizeof(i2c_driver_param_t)))
               printk("hypercall FAILED\n");
            else{ 
-              printk("hypercall SUCCESS\n"); 
+              //printk("hypercall SUCCESS\n"); 
               memcpy(tmp+msg_size,digest_result,digest_size);
 	      ret += HMAC_DIGEST_SIZE;
            }   
@@ -231,7 +231,7 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
               memcpy(tmp+msg_size,digest_result,digest_size);
 	      ret += HMAC_DIGEST_SIZE;
            }
-           printk("traditional HMAC  ret:%u\n",ret);
+           //printk("traditional HMAC  ret:%u\n",ret);
 #endif
 	}
 #endif

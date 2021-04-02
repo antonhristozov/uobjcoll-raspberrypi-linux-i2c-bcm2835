@@ -34,6 +34,8 @@
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/delay.h>
+
 
 /* BSC register offsets */
 #define BSC_C			0x00
@@ -128,7 +130,11 @@ static inline void bcm2708_bsc_fifo_fill(struct bcm2708_i2c *bi)
 static inline int bcm2708_bsc_setup(struct bcm2708_i2c *bi)
 {
 	u32 cdiv, s, clk_tout;
+#ifdef UOBJCOLL
+	u32 c = BSC_C_I2CEN | BSC_C_ST | BSC_C_CLEAR_1;
+#else
 	u32 c = BSC_C_I2CEN | BSC_C_INTD | BSC_C_ST | BSC_C_CLEAR_1;
+#endif
 	int wait_loops = I2C_WAIT_LOOP_COUNT;
 
 	/* Can't call clk_get_rate as it locks a mutex and here we are spinlocked.
@@ -136,11 +142,15 @@ static inline int bcm2708_bsc_setup(struct bcm2708_i2c *bi)
 	 */
 	cdiv = bi->cdiv;
 	clk_tout = bi->clk_tout;
-
+#ifdef UOBJCOLL
+	if (bi->msg->flags & I2C_M_RD)
+		c |= BSC_C_READ;
+#else
 	if (bi->msg->flags & I2C_M_RD)
 		c |= BSC_C_INTR | BSC_C_READ;
 	else
 		c |= BSC_C_INTT;
+#endif
 
 	bcm2708_wr(bi, BSC_CLKT, clk_tout);
 	bcm2708_wr(bi, BSC_DIV, cdiv);
@@ -181,13 +191,90 @@ static inline int bcm2708_bsc_setup(struct bcm2708_i2c *bi)
 			bi->msg++;
 			bi->pos = 0;
 			bcm2708_wr(bi, BSC_DLEN, bi->msg->len);
+#ifdef UOBJCOLL
+			c = BSC_C_I2CEN | BSC_C_ST | BSC_C_READ;
+#else
 			c = BSC_C_I2CEN | BSC_C_INTD | BSC_C_INTR | BSC_C_ST | BSC_C_READ;
+#endif
 		}
 	}
 	bcm2708_wr(bi, BSC_C, c);
 
 	return 0;
 }
+
+
+#ifdef UOBJCOLL
+static irqreturn_t bcm2708_i2c_polling(void *dev_id)
+{
+        struct bcm2708_i2c *bi = dev_id;
+        bool handled = true;
+        u32 s;
+        int ret;
+        int count;
+
+
+        /* we may see camera interrupts on the "other" I2C channel
+                   Just return if we've not sent anything */
+        if (!bi->nmsgs || !bi->msg) {
+                goto early_exit;
+        }
+
+        count = 0;
+        do{
+           s = bcm2708_rd(bi, BSC_S);
+           udelay(100);
+           count++;
+           if(count > 1000){
+              break;
+           }
+	} while ((s & BSC_S_DONE) == 0); 
+
+        if (s & (BSC_S_CLKT | BSC_S_ERR)) {
+                bcm2708_bsc_reset(bi);
+                bi->error = true;
+
+                bi->msg = 0; /* to inform the that all work is done */
+                bi->nmsgs = 0;
+        } else if (s & BSC_S_DONE) {
+                bi->nmsgs--;
+
+                if (bi->msg->flags & I2C_M_RD) {
+                        bcm2708_bsc_fifo_drain(bi);
+                }
+
+                bcm2708_bsc_reset(bi);
+
+                if (bi->nmsgs) {
+                        /* advance to next message */
+                        bi->msg++;
+                        bi->pos = 0;
+                        ret = bcm2708_bsc_setup(bi);
+                        if (ret < 0) {
+                                bcm2708_bsc_reset(bi);
+                                bi->error = true;
+                                bi->msg = 0; /* to inform the that all work is done */
+                                bi->nmsgs = 0;
+                                goto early_exit;
+                        }
+                } else {
+                        bi->msg = 0; /* to inform the that all work is done */
+                        bi->nmsgs = 0;
+                }
+        } else if (s & BSC_S_TXW) {
+                bcm2708_bsc_fifo_fill(bi);
+        } else if (s & BSC_S_RXR) {
+                bcm2708_bsc_fifo_drain(bi);
+        } else {
+                handled = false;
+        }
+
+early_exit:
+        return handled ? IRQ_HANDLED : IRQ_NONE;
+}
+
+
+#else
 
 static irqreturn_t bcm2708_i2c_interrupt(int irq, void *dev_id)
 {
@@ -257,6 +344,7 @@ early_exit:
 	return handled ? IRQ_HANDLED : IRQ_NONE;
 }
 
+#endif
 static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
 	struct i2c_msg *msgs, int num)
 {
@@ -282,8 +370,11 @@ static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
 		dev_err(&adap->dev, "transfer setup timed out\n");
 		goto error_timeout;
 	}
-
+#ifdef UOBJCOLL
+	ret = bcm2708_i2c_polling(bi);
+#else
 	ret = wait_for_completion_timeout(&bi->done, adap->timeout);
+#endif
 	if (ret == 0) {
 		dev_err(&adap->dev, "transfer timed out\n");
 		goto error_timeout;
@@ -409,14 +500,14 @@ static int bcm2708_i2c_probe(struct platform_device *pdev)
 
 	bi->irq = irq;
 	bi->clk = clk;
-
+#ifndef UOBJCOLL
 	err = request_irq(irq, bcm2708_i2c_interrupt, IRQF_SHARED,
 			dev_name(&pdev->dev), bi);
 	if (err) {
 		dev_err(&pdev->dev, "could not request IRQ: %d\n", err);
 		goto out_iounmap;
 	}
-
+#endif
 	bcm2708_bsc_reset(bi);
 
 	err = i2c_add_numbered_adapter(adap);
@@ -446,8 +537,10 @@ static int bcm2708_i2c_probe(struct platform_device *pdev)
 
 out_free_irq:
 	free_irq(bi->irq, bi);
+#ifndef UOBJCOLL
 out_iounmap:
 	iounmap(bi->base);
+#endif
 out_free_bi:
 	kfree(bi);
 out_clk_disable:
