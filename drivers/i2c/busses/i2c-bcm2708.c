@@ -36,6 +36,11 @@
 #include <linux/wait.h>
 #include <linux/delay.h>
 
+#ifdef IOUOBJ
+	#include <khcall.h>
+	#include <i2c-ioaccess.h>
+#endif //IOUOBJ
+
 
 /* BSC register offsets */
 #define BSC_C			0x00
