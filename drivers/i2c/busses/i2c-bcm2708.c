@@ -136,16 +136,6 @@ static inline u32 __u_raw_readl(const volatile void __iomem *addr)
 
 
 
-static void khcall_fast_hvc(uint32_t khcall_function, uint32_t param1, uint32_t param2) { 
-    asm volatile
-    ( " mov r0, %[in_0]\r\n"
-      " mov r1, %[in_1]\r\n"
-      " mov r2, %[in_2]\r\n"
-      ".long 0xE1400070 \r\n"
-        : 
-        : [in_0] "r" (khcall_function), [in_1] "r" (param1), [in_2] "r" (param2)
-        : "r0", "r1", "r2" ); 
-}
 
 #endif
 
@@ -153,7 +143,7 @@ static void khcall_fast_hvc(uint32_t khcall_function, uint32_t param1, uint32_t 
 static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 {
 #ifdef IOUOBJ
-        khcall_fast_hvc(0, 0, 0);
+        khcall_fast(0, 0, 0);
 	return u_readl(bi->base + reg);
 #else
 	return readl(bi->base + reg);
@@ -163,7 +153,7 @@ static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 static inline void bcm2708_wr(struct bcm2708_i2c *bi, unsigned reg, u32 val)
 {
 #ifdef IOUOBJ
-        khcall_fast_hvc(0, 0, 0);
+        khcall_fast(0, 0, 0);
 	u_writel(val, bi->base + reg);
 #else
 	writel(val, bi->base + reg);
