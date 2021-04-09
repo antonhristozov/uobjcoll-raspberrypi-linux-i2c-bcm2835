@@ -112,8 +112,9 @@ struct bcm2708_i2c {
 #define __u_raw_writel __u_raw_writel
 static inline void __u_raw_writel(u32 val, volatile void __iomem *addr)
 {
-        asm volatile("str %1, %0"
-                     : : "Qo" (*(volatile u32 __force *)addr), "r" (val));
+//        asm volatile("str %1, %0"
+//                     : : "Qo" (*(volatile u32 __force *)addr), "r" (val));
+        khcall_fast(UAPP_I2C_IOACCESS_WRITEL, (u32)addr, val);
 }
 
 #define u_writel_relaxed(v,c)     __u_raw_writel((__force u32) cpu_to_le32(v),c)
@@ -153,7 +154,6 @@ static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 static inline void bcm2708_wr(struct bcm2708_i2c *bi, unsigned reg, u32 val)
 {
 #ifdef IOUOBJ
-        khcall_fast(0, 0, 0);
 	u_writel(val, bi->base + reg);
 #else
 	writel(val, bi->base + reg);
