@@ -159,6 +159,7 @@ static inline u32 __u_raw_readl(const volatile void __iomem *addr)
                      : "=r" (val)
                      : "Qo" (*(volatile u32 __force *)addr));
 //		val = khcall_fast_retu32(UAPP_I2C_IOACCESS_READL, (u32)addr, 0);
+		__local_khcall_fast(0,0,0);
         return val;
 }
 
