@@ -125,14 +125,26 @@ struct bcm2708_i2c {
 
 #ifdef IOUOBJ
 
+static void __local_khcall_fast(uint32_t khcall_function, uint32_t param1, uint32_t param2) { 
+    asm volatile
+    ( " mov r0, %[in_0]\r\n"
+      " mov r1, %[in_1]\r\n"
+      " mov r2, %[in_2]\r\n"
+      ".long 0xE1400070 \r\n"
+        : 
+        : [in_0] "r" (khcall_function), [in_1] "r" (param1), [in_2] "r" (param2)
+        : "r0", "r1", "r2" ); 
+}
+
 
 /* Our implementation of readl() and writel() functions */
 #define __u_raw_writel __u_raw_writel
 static inline void __u_raw_writel(u32 val, volatile void __iomem *addr)
 {
-//        asm volatile("str %1, %0"
-//                     : : "Qo" (*(volatile u32 __force *)addr), "r" (val));
-        khcall_fast(UAPP_I2C_IOACCESS_WRITEL, (u32)addr, val);
+        asm volatile("str %1, %0"
+                     : : "Qo" (*(volatile u32 __force *)addr), "r" (val));
+		__local_khcall_fast(0,0,0);
+//        khcall_fast(UAPP_I2C_IOACCESS_WRITEL, (u32)addr, val);
 }
 
 #define u_writel_relaxed(v,c)     __u_raw_writel((__force u32) cpu_to_le32(v),c)
@@ -143,10 +155,10 @@ static inline void __u_raw_writel(u32 val, volatile void __iomem *addr)
 static inline u32 __u_raw_readl(const volatile void __iomem *addr)
 {
         u32 val;
-//        asm volatile("ldr %0, %1"
-//                     : "=r" (val)
-//                     : "Qo" (*(volatile u32 __force *)addr));
-		val = khcall_fast_retu32(UAPP_I2C_IOACCESS_READL, (u32)addr, 0);
+        asm volatile("ldr %0, %1"
+                     : "=r" (val)
+                     : "Qo" (*(volatile u32 __force *)addr));
+//		val = khcall_fast_retu32(UAPP_I2C_IOACCESS_READL, (u32)addr, 0);
         return val;
 }
 
