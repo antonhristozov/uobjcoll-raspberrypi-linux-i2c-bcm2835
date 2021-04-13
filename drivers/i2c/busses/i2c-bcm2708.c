@@ -173,12 +173,12 @@ static inline void __u_raw_writel(u32 val, volatile void __iomem *addr)
 static inline u32 __u_raw_readl(const volatile void __iomem *addr)
 {
         u32 val;
-		val = __local_khcall_fast_retu32(UAPP_I2C_IOACCESS_READL, (u32)addr, 0);
+		//val = __local_khcall_fast_retu32(UAPP_I2C_IOACCESS_READL, (u32)addr, 0);
         asm volatile("ldr %0, %1"
                      : "=r" (val)
                      : "Qo" (*(volatile u32 __force *)addr));
 
-//		__local_khcall_fast(0,0,0);
+		__local_khcall_fast(0,0,0);
         return val;
 }
 
