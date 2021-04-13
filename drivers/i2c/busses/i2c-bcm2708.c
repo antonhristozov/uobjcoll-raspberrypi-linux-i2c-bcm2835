@@ -141,8 +141,8 @@ static void __local_khcall_fast(uint32_t khcall_function, uint32_t param1, uint3
 #define __u_raw_writel __u_raw_writel
 static inline void __u_raw_writel(u32 val, volatile void __iomem *addr)
 {
-        asm volatile("str %1, %0"
-                     : : "Qo" (*(volatile u32 __force *)addr), "r" (val));
+        //asm volatile("str %1, %0"
+        //             : : "Qo" (*(volatile u32 __force *)addr), "r" (val));
 		//__local_khcall_fast(0,0,0);
         __local_khcall_fast(UAPP_I2C_IOACCESS_WRITEL, (u32)addr, val);
 }
