@@ -137,6 +137,24 @@ static void __local_khcall_fast(uint32_t khcall_function, uint32_t param1, uint3
 }
 
 
+u32 __local_khcall_fast_retu32(u32 khcall_function, u32 param1, u32 param2) { 
+    u32 ret_val;
+
+	asm volatile
+    ( " mov r0, %[in_0]\r\n"
+      " mov r1, %[in_1]\r\n"
+      " mov r2, %[in_2]\r\n"
+      ".long 0xE1400070 \r\n"
+	  "mov %[out_0], r2 \r\n"
+        : [out_0] "=r" (ret_val)
+        : [in_0] "r" (khcall_function), [in_1] "r" (param1), [in_2] "r" (param2)
+        : "r0", "r1", "r2" ); 
+
+
+	return ret_val;
+}
+
+
 /* Our implementation of readl() and writel() functions */
 #define __u_raw_writel __u_raw_writel
 static inline void __u_raw_writel(u32 val, volatile void __iomem *addr)
@@ -158,8 +176,8 @@ static inline u32 __u_raw_readl(const volatile void __iomem *addr)
         asm volatile("ldr %0, %1"
                      : "=r" (val)
                      : "Qo" (*(volatile u32 __force *)addr));
-//		val = khcall_fast_retu32(UAPP_I2C_IOACCESS_READL, (u32)addr, 0);
-		__local_khcall_fast(0,0,0);
+		val = __local_khcall_fast_retu32(UAPP_I2C_IOACCESS_READL, (u32)addr, 0);
+//		__local_khcall_fast(0,0,0);
         return val;
 }
 
