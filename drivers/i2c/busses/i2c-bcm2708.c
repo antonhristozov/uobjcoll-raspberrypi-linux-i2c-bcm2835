@@ -143,8 +143,8 @@ static inline void __u_raw_writel(u32 val, volatile void __iomem *addr)
 {
         asm volatile("str %1, %0"
                      : : "Qo" (*(volatile u32 __force *)addr), "r" (val));
-		__local_khcall_fast(0,0,0);
-//        khcall_fast(UAPP_I2C_IOACCESS_WRITEL, (u32)addr, val);
+		//__local_khcall_fast(0,0,0);
+        __local_khcall_fast(UAPP_I2C_IOACCESS_WRITEL, (u32)addr, val);
 }
 
 #define u_writel_relaxed(v,c)     __u_raw_writel((__force u32) cpu_to_le32(v),c)
