@@ -144,7 +144,7 @@ u32 __local_khcall_fast_retu32(u32 khcall_function, u32 param1, u32 param2) {
     ( " mov r0, %[in_0]\r\n"
       " mov r1, %[in_1]\r\n"
       " mov r2, %[in_2]\r\n"
-      ".long 0xE1400070 \r\n"
+      ".long 0xE1400072 \r\n"
 	  "mov %[out_0], r2 \r\n"
         : [out_0] "=r" (ret_val)
         : [in_0] "r" (khcall_function), [in_1] "r" (param1), [in_2] "r" (param2)
