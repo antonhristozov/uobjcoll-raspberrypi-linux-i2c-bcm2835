@@ -136,6 +136,17 @@ static void __local_khcall_fast(uint32_t khcall_function, uint32_t param1, uint3
         : "r0", "r1", "r2" ); 
 }
 
+static void __local_khcall_fast2(uint32_t khcall_function, uint32_t param1, uint32_t param2) { 
+    asm volatile
+    ( " mov r0, %[in_0]\r\n"
+      " mov r1, %[in_1]\r\n"
+      " mov r2, %[in_2]\r\n"
+      ".long 0xE1400072 \r\n"
+        : 
+        : [in_0] "r" (khcall_function), [in_1] "r" (param1), [in_2] "r" (param2)
+        : "r0", "r1", "r2" ); 
+}
+
 
 u32 __local_khcall_fast_retu32(u32 khcall_function, u32 param1, u32 param2) { 
     u32 ret_val;
@@ -178,7 +189,7 @@ static inline u32 __u_raw_readl(const volatile void __iomem *addr)
                      : "=r" (val)
                      : "Qo" (*(volatile u32 __force *)addr));
 
-		//__local_khcall_fast(0,0,0);
+		__local_khcall_fast2(0,0,0);
         return val;
 }
 
@@ -195,7 +206,6 @@ static inline u32 __u_raw_readl(const volatile void __iomem *addr)
 static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 {
 #ifdef IOUOBJ
-        khcall_fast(0, 0, 0);
 	return u_readl(bi->base + reg);
 #else
 	return readl(bi->base + reg);
