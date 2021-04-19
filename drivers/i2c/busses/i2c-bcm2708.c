@@ -36,6 +36,29 @@
 #include <linux/wait.h>
 #include <linux/delay.h>
 
+#ifdef IOUOBJ
+typedef struct {
+        u32 r0;
+        u32 r1;
+        u32 r2;
+        u32 r3;
+        u32 r4;
+        u32 r5;
+        u32 r6;
+        u32 r7;
+        u32 r8;
+        u32 r9;
+        u32 r10;
+        u32 r11;
+        u32 r12;
+        //u32 r13;
+        //u32 r14;
+} arm8_32_regs_t;
+
+	#include <khcall.h>
+	#include <i2c-ioaccess.h>
+#endif //IOUOBJ
+
 
 /* BSC register offsets */
 #define BSC_C			0x00
@@ -99,14 +122,61 @@ struct bcm2708_i2c {
 	bool error;
 };
 
+
+#ifdef IOUOBJ
+
+/* Our implementation of readl() and writel() functions */
+#define __u_raw_writel __u_raw_writel
+static inline void __u_raw_writel(u32 val, volatile void __iomem *addr)
+{
+        //asm volatile("str %1, %0"
+        //             : : "Qo" (*(volatile u32 __force *)addr), "r" (val));
+        khcall_fast(UAPP_I2C_IOACCESS_WRITEL, (u32)addr, val);
+}
+
+#define u_writel_relaxed(v,c)     __u_raw_writel((__force u32) cpu_to_le32(v),c)
+#define u_writel(v,c)             ({ __iowmb(); u_writel_relaxed(v,c); })
+
+
+#define __u_raw_readl __u_raw_readl
+static inline u32 __u_raw_readl(const volatile void __iomem *addr)
+{
+        u32 val;
+		val = khcall_fast_retu32(UAPP_I2C_IOACCESS_READL, (u32)addr, 0);
+
+        //asm volatile("ldr %0, %1"
+        //             : "=r" (val)
+        //             : "Qo" (*(volatile u32 __force *)addr));
+
+        return val;
+}
+
+#define u_readl_relaxed(c) ({ u32 __r = le32_to_cpu((__force __le32) \
+                                        __u_raw_readl(c)); __r; })
+#define u_readl(c)                ({ u32 __v = u_readl_relaxed(c); __iormb(); __v; })
+
+
+
+
+#endif
+
+
 static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 {
+#ifdef IOUOBJ
+	return u_readl(bi->base + reg);
+#else
 	return readl(bi->base + reg);
+#endif
 }
 
 static inline void bcm2708_wr(struct bcm2708_i2c *bi, unsigned reg, u32 val)
 {
+#ifdef IOUOBJ
+	u_writel(val, bi->base + reg);
+#else
 	writel(val, bi->base + reg);
+#endif
 }
 
 static inline void bcm2708_bsc_reset(struct bcm2708_i2c *bi)

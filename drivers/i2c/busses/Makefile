@@ -2,8 +2,11 @@
 # Makefile for the i2c bus drivers.
 #
 
-obj-$(CONFIG_I2C_BCM2708)	+= i2c-bcm2708.o
-#CFLAGS_i2c-bcm2708.o := -DUOBJCOLL
+obj-$(CONFIG_I2C_BCM2708)	+= i2c-my-bcm2708.o
+i2c-my-bcm2708-objs += i2c-bcm2708.o ../../../../uberxmhf/uxmhf-rpi3/rgapps/linux/libs/libkhcall/libkhcall.a
+CFLAGS_i2c-bcm2708.o := -DIOUOBJ -I/home/anton/uberwork/uberxmhf/uxmhf-rpi3/rgapps/linux/libs/libkhcall/include/ -I/home/anton/uberwork/uberxmhf/uxmhf-rpi3/uobjcoll/uobjs/main/include -I.
+
+
 
 # ACPI drivers
 obj-$(CONFIG_I2C_SCMI)		+= i2c-scmi.o
