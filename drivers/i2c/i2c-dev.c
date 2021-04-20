@@ -171,8 +171,8 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 {
 	char *tmp;
 	int ret;
-        unsigned long digest_size = HMAC_DIGEST_SIZE;
 #ifdef HMAC_DIGEST
+        unsigned long digest_size = HMAC_DIGEST_SIZE;
 #ifdef  UOBJCOLL
         struct page *k_page1;
         struct page *k_page2;
@@ -215,17 +215,17 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 #ifdef HMAC_DIGEST
 	if ((ret == msg_size) && (last_i2c_address == PICAR_I2C_ADDRESS)){
 #ifdef UOBJCOLL
-          i2c_driver_param_t *ptr_i2c_driver = &i2c_drv_param; 
+          i2c_driver_param_t *ptr_i2c_driver = &i2c_drv_param;
           ptr_i2c_driver->in_buffer_va = (uint32_t) tmp;
           ptr_i2c_driver->len = msg_size;
           ptr_i2c_driver->out_buffer_va = (uint32_t) digest_result;
           if(!khcall(UAPP_I2C_DRIVER_FUNCTION_TEST, ptr_i2c_driver, sizeof(i2c_driver_param_t)))
               printk("hypercall FAILED\n");
-           else{ 
-              //printk("hypercall SUCCESS\n"); 
+           else{
+              //printk("hypercall SUCCESS\n");
               memcpy(tmp+msg_size,digest_result,digest_size);
 	      ret += HMAC_DIGEST_SIZE;
-           }   
+           }
 #else
            if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) tmp, (unsigned long) msg_size, digest_result, &digest_size)==CRYPT_OK) {
               memcpy(tmp+msg_size,digest_result,digest_size);
