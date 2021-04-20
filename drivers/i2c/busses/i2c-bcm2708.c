@@ -448,7 +448,8 @@ static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
   unsigned char *digest_result;
   i2c_driver_param_t *ptr_i2c_driver = &i2c_drv_param;
   if(msgs->addr == PICAR_I2C_ADDRESS){
-     count += HMAC_DIGEST_SIZE;
+     msg_size = count - HMAC_DIGEST_SIZE;
+     msgs->len = msg_size;
   }
   if (count > 4096)
     count = 4096;

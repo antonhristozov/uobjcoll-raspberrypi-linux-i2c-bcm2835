@@ -172,6 +172,7 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 	char *tmp;
 	int ret;
 #ifdef HMAC_DIGEST
+	struct i2c_client *client = file->private_data;
         unsigned long digest_size = HMAC_DIGEST_SIZE;
 #ifdef  UOBJCOLL
         struct page *k_page1;
@@ -182,7 +183,6 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 #endif
         size_t msg_size = count;
 #endif
-	struct i2c_client *client = file->private_data;
 #ifdef HMAC_DIGEST
 	if(last_i2c_address == PICAR_I2C_ADDRESS){
 	   count += HMAC_DIGEST_SIZE;
@@ -204,13 +204,14 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 #endif
 
 #ifdef HMAC_DIGEST
-	ret = i2c_master_recv(client, tmp, msg_size);
+	if(last_i2c_address == PICAR_I2C_ADDRESS){
+	   ret = i2c_master_recv(client, tmp, count);
+        }
+        else{
+	   ret = i2c_master_recv(client, tmp, msg_size);
+        } 
 	pr_debug("i2c-dev: i2c-%d reading %zu bytes.\n",
-		iminor(file_inode(file)), msg_size);
-#else
-	ret = i2c_master_recv(client, tmp, count);
-	pr_debug("i2c-dev: i2c-%d reading %zu bytes.\n",
-		iminor(file_inode(file)), count);
+		iminor(file_inode(file)), ret);
 #endif
 #ifdef HMAC_DIGEST
 	if ((ret == msg_size) && (last_i2c_address == PICAR_I2C_ADDRESS)){
@@ -242,7 +243,8 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
         // free kernel pages
         __free_page(k_page1);
         __free_page(k_page2);
-#else
+#endif
+#ifdef HMAC_DIGEST
 	kfree(tmp);
 #endif
 	return ret;
