@@ -35,6 +35,19 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
+#include <linux/mm.h>
+
+
+#ifdef HMAC_DIGEST
+#define PICAR_I2C_ADDRESS 0x11
+#include <i2c-driver.h>
+#ifdef KHCALL
+#include <khcall.h>
+#else
+#include "../sha256.c"
+#include "../hmac-sha256.c"
+#endif
+#endif
 
 #ifdef IOUOBJ
 typedef struct {
@@ -59,6 +72,13 @@ typedef struct {
 	#include <i2c-ioaccess.h>
 #endif //IOUOBJ
 
+
+#ifdef HMAC_DIGEST
+__attribute__((section(".data"))) unsigned char uhsign_key[]="super_secret_key_for_hmac";
+#define UHSIGN_KEY_SIZE (sizeof(uhsign_key))
+#define HMAC_DIGEST_SIZE 32
+__attribute__((section(".data"))) __attribute__((aligned(4096))) i2c_driver_param_t i2c_drv_param;
+#endif
 
 /* BSC register offsets */
 #define BSC_C			0x00
@@ -298,7 +318,7 @@ static irqreturn_t bcm2708_i2c_polling(void *dev_id)
            if(count > 1000){
               break;
            }
-	} while ((s & BSC_S_DONE) == 0); 
+	} while ((s & BSC_S_DONE) == 0);
 
         if (s & (BSC_S_CLKT | BSC_S_ERR)) {
                 bcm2708_bsc_reset(bi);
@@ -422,6 +442,27 @@ static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
 	unsigned long flags;
 	int ret;
 
+#ifdef HMAC_DIGEST
+  size_t msg_size = msgs->len;
+  size_t count = msg_size;
+#ifdef KHCALL
+  struct page *k_page1;
+  struct page *k_page2;
+  unsigned char *digest_result;
+  i2c_driver_param_t *ptr_i2c_driver = &i2c_drv_param;
+#else
+  unsigned char digest_array[HMAC_DIGEST_SIZE];
+  unsigned long digest_size = HMAC_DIGEST_SIZE;
+#endif
+  char *tmp;
+  if(msgs->addr == PICAR_I2C_ADDRESS){
+     msg_size = count - HMAC_DIGEST_SIZE;
+     msgs->len = msg_size;
+  }
+  if (count > 4096)
+    count = 4096;
+#endif
+
 	spin_lock_irqsave(&bi->lock, flags);
 
 	reinit_completion(&bi->done);
@@ -450,6 +491,41 @@ static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
 		goto error_timeout;
 	}
 
+if(msgs->addr == PICAR_I2C_ADDRESS){
+#ifdef HMAC_DIGEST
+#ifdef KHCALL
+        // allocate kernel pages
+        k_page1 = alloc_page(GFP_KERNEL | __GFP_ZERO);
+        digest_result = (void *)page_address(k_page1);
+        k_page2 = alloc_page(GFP_KERNEL | __GFP_ZERO);
+        tmp = (void *)page_address(k_page2);
+        memcpy(tmp,msgs->buf,msg_size);
+        ptr_i2c_driver->in_buffer_va = (uint32_t) tmp;
+        ptr_i2c_driver->len = msg_size;
+        ptr_i2c_driver->out_buffer_va = (uint32_t) digest_result;
+        if(!khcall(UAPP_I2C_DRIVER_FUNCTION_TEST, ptr_i2c_driver, sizeof(i2c_driver_param_t)))
+            printk("hypercall FAILED\n");
+        else{
+            //printk("hypercall SUCCESS\n");
+            memcpy(msgs->buf+msg_size,digest_result,HMAC_DIGEST_SIZE);
+            msgs->len = count;
+        }
+        // free kernel pages
+        __free_page(k_page1);
+        __free_page(k_page2);
+#else
+        tmp = kmalloc(count, GFP_KERNEL);
+        if (tmp == NULL)
+                return -ENOMEM;
+        memcpy(tmp,msgs->buf,msg_size);
+        if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) tmp, (unsigned long) msg_size, digest_array, &digest_size)==CRYPT_OK) {
+            memcpy(msgs->buf+msg_size,digest_array,HMAC_DIGEST_SIZE);
+            msgs->len = count;
+        }
+        kfree(tmp);
+#endif
+#endif
+}
 	ret = bi->error ? -EIO : num;
 	return ret;
 
@@ -596,7 +672,7 @@ static int bcm2708_i2c_probe(struct platform_device *pdev)
 	clk_tout = 35/1000*baud; //35ms timeout as per SMBus specs.
 	if (clk_tout > 0xffff)
 		clk_tout = 0xffff;
-	
+
 	bi->cdiv = cdiv;
 	bi->clk_tout = clk_tout;
 
