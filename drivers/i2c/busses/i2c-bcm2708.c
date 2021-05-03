@@ -37,11 +37,19 @@
 #include <linux/delay.h>
 #include <linux/mm.h>
 
+//////
+// uobject refactoring of the driver
+// build definitions
+// UOBJ_REFACTOR --> refactored driver with parts isolated towards uobject 
+// UOBJ_REFACTOR_UOBJ_REFACTOR_HMAC_DIGEST --> add HMAC functionality; needs UOBJ_REFACTOR to be chosen
+// UOBJ_INVOCATION --> refactored driver with calls into rot backed uobject
+// POLLING --> switch to polling driver; currently untested
+/////
 
-#ifdef HMAC_DIGEST
+#ifdef UOBJ_REFACTOR_HMAC_DIGEST
 #define PICAR_I2C_ADDRESS 0x11
 #include <i2c-driver.h>
-#ifdef KHCALL
+#ifdef UOBJ_INVOCATION
 #include <khcall.h>
 #else
 #include "../sha256.c"
@@ -49,7 +57,8 @@
 #endif
 #endif
 
-#ifdef IOUOBJ
+
+#ifdef UOBJ_REFACTOR
 typedef struct {
         u32 r0;
         u32 r1;
@@ -70,13 +79,13 @@ typedef struct {
 
 	#include <khcall.h>
 	#include <i2c-ioaccess.h>
-#endif //IOUOBJ
+#endif //UOBJ_REFACTOR
 
 
-#ifdef HMAC_DIGEST
+#ifdef UOBJ_REFACTOR_HMAC_DIGEST
 __attribute__((section(".data"))) unsigned char uhsign_key[]="super_secret_key_for_hmac";
 #define UHSIGN_KEY_SIZE (sizeof(uhsign_key))
-#define HMAC_DIGEST_SIZE 32
+#define UOBJ_REFACTOR_HMAC_DIGEST_SIZE 32
 __attribute__((section(".data"))) __attribute__((aligned(4096))) i2c_driver_param_t i2c_drv_param;
 #endif
 
@@ -143,7 +152,7 @@ struct bcm2708_i2c {
 };
 
 
-#ifdef IOUOBJ
+#ifdef UOBJ_REFACTOR
 
 /* Our implementation of readl() and writel() functions */
 #define __u_raw_writel __u_raw_writel
@@ -183,7 +192,7 @@ static inline u32 __u_raw_readl(const volatile void __iomem *addr)
 
 static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 {
-#ifdef IOUOBJ
+#ifdef UOBJ_REFACTOR
 	return u_readl(bi->base + reg);
 #else
 	return readl(bi->base + reg);
@@ -192,7 +201,7 @@ static inline u32 bcm2708_rd(struct bcm2708_i2c *bi, unsigned reg)
 
 static inline void bcm2708_wr(struct bcm2708_i2c *bi, unsigned reg, u32 val)
 {
-#ifdef IOUOBJ
+#ifdef UOBJ_REFACTOR
 	u_writel(val, bi->base + reg);
 #else
 	writel(val, bi->base + reg);
@@ -205,10 +214,41 @@ static inline void bcm2708_bsc_reset(struct bcm2708_i2c *bi)
 	bcm2708_wr(bi, BSC_S, BSC_S_CLKT | BSC_S_ERR | BSC_S_DONE);
 }
 
+#ifdef UOBJ_REFACTOR
+__attribute__((section(".data"))) static unsigned char static_buffer[1024];
+
+static inline int picar_i2c_address_readbuffer (int bi_pos, u32 bi_msg_len, u32 bi_base){
+	int i;
+	i = bi_pos;
+
+	while ((i < bi_msg_len) && (u_readl(bi_base + BSC_S) & BSC_S_RXD)){
+		static_buffer[i++] = u_readl(bi_base + BSC_FIFO);
+	}
+
+	return i;
+}
+#endif
+
 static inline void bcm2708_bsc_fifo_drain(struct bcm2708_i2c *bi)
 {
-	while ((bi->pos < bi->msg->len) && (bcm2708_rd(bi, BSC_S) & BSC_S_RXD))
+#ifdef UOBJ_REFACTOR
+  if(bi->msg->addr == PICAR_I2C_ADDRESS){
+     //while ((bi->pos < bi->msg->len) && (bcm2708_rd(bi, BSC_S) & BSC_S_RXD)){
+     //   static_buffer[bi->pos++] = bcm2708_rd(bi, BSC_FIFO);
+     //}
+	 bi->pos = picar_i2c_address_readbuffer(bi->pos, bi->msg->len, bi->base);
+  }
+  else{
+     while ((bi->pos < bi->msg->len) && (bcm2708_rd(bi, BSC_S) & BSC_S_RXD)){
+        bi->msg->buf[bi->pos++] = bcm2708_rd(bi, BSC_FIFO);
+     }
+  }
+#else
+	while ((bi->pos < bi->msg->len) && (bcm2708_rd(bi, BSC_S) & BSC_S_RXD)){
 		bi->msg->buf[bi->pos++] = bcm2708_rd(bi, BSC_FIFO);
+	}
+#endif //UOBJ_REFACTOR
+
 }
 
 static inline void bcm2708_bsc_fifo_fill(struct bcm2708_i2c *bi)
@@ -220,7 +260,7 @@ static inline void bcm2708_bsc_fifo_fill(struct bcm2708_i2c *bi)
 static inline int bcm2708_bsc_setup(struct bcm2708_i2c *bi)
 {
 	u32 cdiv, s, clk_tout;
-#ifdef UOBJCOLL
+#ifdef POLLING
 	u32 c = BSC_C_I2CEN | BSC_C_ST | BSC_C_CLEAR_1;
 #else
 	u32 c = BSC_C_I2CEN | BSC_C_INTD | BSC_C_ST | BSC_C_CLEAR_1;
@@ -232,7 +272,7 @@ static inline int bcm2708_bsc_setup(struct bcm2708_i2c *bi)
 	 */
 	cdiv = bi->cdiv;
 	clk_tout = bi->clk_tout;
-#ifdef UOBJCOLL
+#ifdef POLLING
 	if (bi->msg->flags & I2C_M_RD)
 		c |= BSC_C_READ;
 #else
@@ -281,7 +321,7 @@ static inline int bcm2708_bsc_setup(struct bcm2708_i2c *bi)
 			bi->msg++;
 			bi->pos = 0;
 			bcm2708_wr(bi, BSC_DLEN, bi->msg->len);
-#ifdef UOBJCOLL
+#ifdef POLLING
 			c = BSC_C_I2CEN | BSC_C_ST | BSC_C_READ;
 #else
 			c = BSC_C_I2CEN | BSC_C_INTD | BSC_C_INTR | BSC_C_ST | BSC_C_READ;
@@ -294,7 +334,7 @@ static inline int bcm2708_bsc_setup(struct bcm2708_i2c *bi)
 }
 
 
-#ifdef UOBJCOLL
+#ifdef POLLING
 static irqreturn_t bcm2708_i2c_polling(void *dev_id)
 {
         struct bcm2708_i2c *bi = dev_id;
@@ -442,21 +482,21 @@ static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
 	unsigned long flags;
 	int ret;
 
-#ifdef HMAC_DIGEST
+#ifdef UOBJ_REFACTOR_HMAC_DIGEST
   size_t msg_size = msgs->len;
   size_t count = msg_size;
-#ifdef KHCALL
+#ifdef UOBJ_INVOCATION
   struct page *k_page1;
   struct page *k_page2;
   unsigned char *digest_result;
   i2c_driver_param_t *ptr_i2c_driver = &i2c_drv_param;
 #else
-  unsigned char digest_array[HMAC_DIGEST_SIZE];
-  unsigned long digest_size = HMAC_DIGEST_SIZE;
+  unsigned char digest_array[UOBJ_REFACTOR_HMAC_DIGEST_SIZE];
+  unsigned long digest_size = UOBJ_REFACTOR_HMAC_DIGEST_SIZE;
 #endif
   char *tmp;
   if(msgs->addr == PICAR_I2C_ADDRESS){
-     msg_size = count - HMAC_DIGEST_SIZE;
+     msg_size = count - UOBJ_REFACTOR_HMAC_DIGEST_SIZE;
      msgs->len = msg_size;
   }
   if (count > 4096)
@@ -481,7 +521,7 @@ static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
 		dev_err(&adap->dev, "transfer setup timed out\n");
 		goto error_timeout;
 	}
-#ifdef UOBJCOLL
+#ifdef POLLING
 	ret = bcm2708_i2c_polling(bi);
 #else
 	ret = wait_for_completion_timeout(&bi->done, adap->timeout);
@@ -490,16 +530,15 @@ static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
 		dev_err(&adap->dev, "transfer timed out\n");
 		goto error_timeout;
 	}
-
 if(msgs->addr == PICAR_I2C_ADDRESS){
-#ifdef HMAC_DIGEST
-#ifdef KHCALL
+#ifdef UOBJ_REFACTOR_HMAC_DIGEST
+#ifdef UOBJ_INVOCATION
         // allocate kernel pages
         k_page1 = alloc_page(GFP_KERNEL | __GFP_ZERO);
         digest_result = (void *)page_address(k_page1);
         k_page2 = alloc_page(GFP_KERNEL | __GFP_ZERO);
         tmp = (void *)page_address(k_page2);
-        memcpy(tmp,msgs->buf,msg_size);
+        memcpy(tmp,static_buffer,msg_size);
         ptr_i2c_driver->in_buffer_va = (uint32_t) tmp;
         ptr_i2c_driver->len = msg_size;
         ptr_i2c_driver->out_buffer_va = (uint32_t) digest_result;
@@ -507,19 +546,20 @@ if(msgs->addr == PICAR_I2C_ADDRESS){
             printk("hypercall FAILED\n");
         else{
             //printk("hypercall SUCCESS\n");
-            memcpy(msgs->buf+msg_size,digest_result,HMAC_DIGEST_SIZE);
+            memcpy(static_buffer + msg_size,digest_result,UOBJ_REFACTOR_HMAC_DIGEST_SIZE);
             msgs->len = count;
         }
         // free kernel pages
         __free_page(k_page1);
         __free_page(k_page2);
+        memcpy(msgs->buf,static_buffer,count);
 #else
         tmp = kmalloc(count, GFP_KERNEL);
         if (tmp == NULL)
                 return -ENOMEM;
         memcpy(tmp,msgs->buf,msg_size);
         if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) tmp, (unsigned long) msg_size, digest_array, &digest_size)==CRYPT_OK) {
-            memcpy(msgs->buf+msg_size,digest_array,HMAC_DIGEST_SIZE);
+            memcpy(msgs->buf+msg_size,digest_array,UOBJ_REFACTOR_HMAC_DIGEST_SIZE);
             msgs->len = count;
         }
         kfree(tmp);
@@ -646,7 +686,7 @@ static int bcm2708_i2c_probe(struct platform_device *pdev)
 
 	bi->irq = irq;
 	bi->clk = clk;
-#ifndef UOBJCOLL
+#ifndef POLLING
 	err = request_irq(irq, bcm2708_i2c_interrupt, IRQF_SHARED,
 			dev_name(&pdev->dev), bi);
 	if (err) {
@@ -683,7 +723,7 @@ static int bcm2708_i2c_probe(struct platform_device *pdev)
 
 out_free_irq:
 	free_irq(bi->irq, bi);
-#ifndef UOBJCOLL
+#ifndef POLLING
 out_iounmap:
 	iounmap(bi->base);
 #endif
