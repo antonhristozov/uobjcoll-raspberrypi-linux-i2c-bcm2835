@@ -227,6 +227,23 @@ static inline int picar_i2c_address_readbuffer (int bi_pos, u32 bi_msg_len, u32 
 
 	return i;
 }
+
+//return 1 on success, 0 on failure
+static int picar_i2c_compute_hmac(char *buffer, u32 msg_size, u32 count){
+	unsigned char l_digest_array[UOBJ_REFACTOR_HMAC_DIGEST_SIZE];
+  	unsigned long l_digest_size = UOBJ_REFACTOR_HMAC_DIGEST_SIZE;
+
+    memcpy(buffer,static_buffer,msg_size);
+
+	if(hmac_sha256_memory(uhsign_key, (unsigned long) UHSIGN_KEY_SIZE, (unsigned char *) buffer, (unsigned long) msg_size, l_digest_array, &l_digest_size)==CRYPT_OK) {
+		memcpy(buffer+msg_size,l_digest_array,UOBJ_REFACTOR_HMAC_DIGEST_SIZE);
+		return 1;
+	}else{
+		return 0;		
+	}
+
+}
+
 #endif
 
 static inline void bcm2708_bsc_fifo_drain(struct bcm2708_i2c *bi)
@@ -533,7 +550,7 @@ static int bcm2708_i2c_master_xfer(struct i2c_adapter *adap,
 if(msgs->addr == PICAR_I2C_ADDRESS){
 #ifdef UOBJ_REFACTOR_HMAC_DIGEST
 #ifdef UOBJ_INVOCATION
-        // allocate kernel pages
+/*        // allocate kernel pages
         k_page1 = alloc_page(GFP_KERNEL | __GFP_ZERO);
         digest_result = (void *)page_address(k_page1);
         k_page2 = alloc_page(GFP_KERNEL | __GFP_ZERO);
@@ -552,7 +569,16 @@ if(msgs->addr == PICAR_I2C_ADDRESS){
         // free kernel pages
         __free_page(k_page1);
         __free_page(k_page2);
-        memcpy(msgs->buf,static_buffer,count);
+        memcpy(msgs->buf,static_buffer,count);*/
+
+		k_page1 = alloc_page(GFP_KERNEL | __GFP_ZERO);
+		tmp = (void *)page_address(k_page1);
+		if( picar_i2c_compute_hmac(tmp, msg_size, count) ){
+			memcpy(msgs->buf,tmp,count);
+			msgs->len = count;
+		}
+        __free_page(k_page1);
+
 #else
         tmp = kmalloc(count, GFP_KERNEL);
         if (tmp == NULL)
