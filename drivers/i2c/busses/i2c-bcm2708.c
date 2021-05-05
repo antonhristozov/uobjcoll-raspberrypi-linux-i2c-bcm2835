@@ -49,12 +49,12 @@
 #ifdef UOBJ_REFACTOR_HMAC_DIGEST
 #define PICAR_I2C_ADDRESS 0x11
 #include <i2c-driver.h>
-#ifdef UOBJ_INVOCATION
+//#ifdef UOBJ_INVOCATION
 #include <khcall.h>
-#else
+//#else
 #include "../sha256.c"
 #include "../hmac-sha256.c"
-#endif
+//#endif
 #endif
 
 
