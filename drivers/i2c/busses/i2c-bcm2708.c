@@ -155,7 +155,7 @@ struct bcm2708_i2c {
 #ifdef UOBJ_REFACTOR
 
 /* Our implementation of readl() and writel() functions */
-#define __u_raw_writel __u_raw_writel
+//#define __u_raw_writel __u_raw_writel
 static inline void __u_raw_writel(u32 val, volatile void __iomem *addr)
 {
         //asm volatile("str %1, %0"
@@ -163,11 +163,12 @@ static inline void __u_raw_writel(u32 val, volatile void __iomem *addr)
         khcall_fast(UAPP_I2C_IOACCESS_WRITEL, (u32)addr, val);
 }
 
-#define u_writel_relaxed(v,c)     __u_raw_writel((__force u32) cpu_to_le32(v),c)
-#define u_writel(v,c)             ({ __iowmb(); u_writel_relaxed(v,c); })
+//#define u_writel_relaxed(v,c)     __u_raw_writel((__force u32) cpu_to_le32(v),c)
+//#define u_writel(v,c)             ({ __iowmb(); u_writel_relaxed(v,c); })
+#define u_writel(v,c)        __u_raw_writel(v,c)
 
 
-#define __u_raw_readl __u_raw_readl
+//#define __u_raw_readl __u_raw_readl
 static inline u32 __u_raw_readl(const volatile void __iomem *addr)
 {
         u32 val;
@@ -180,10 +181,11 @@ static inline u32 __u_raw_readl(const volatile void __iomem *addr)
         return val;
 }
 
-#define u_readl_relaxed(c) ({ u32 __r = le32_to_cpu((__force __le32) \
-                                        __u_raw_readl(c)); __r; })
-#define u_readl(c)                ({ u32 __v = u_readl_relaxed(c); __iormb(); __v; })
+//#define u_readl_relaxed(c) ({ u32 __r = le32_to_cpu((__force __le32) \
+//                                        __u_raw_readl(c)); __r; })
+//#define u_readl(c)                ({ u32 __v = u_readl_relaxed(c); __iormb(); __v; })
 
+#define u_readl(c)  __u_raw_readl(c)
 
 
 
