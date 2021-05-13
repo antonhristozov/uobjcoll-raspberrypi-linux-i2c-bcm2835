@@ -220,19 +220,23 @@ static inline void bcm2708_bsc_reset(struct bcm2708_i2c *bi)
 __attribute__((section(".data"))) static unsigned char static_buffer[1024];
 
 static inline int picar_i2c_address_readbuffer (int bi_pos, u32 bi_msg_len, u32 bi_base){
-	int i;
+/*	int i;
 	i = bi_pos;
 
 	while ((i < bi_msg_len) && (u_readl(bi_base + BSC_S) & BSC_S_RXD)){
 		static_buffer[i++] = u_readl(bi_base + BSC_FIFO);
 	}
 
-	return i;
+	return i;*/
+    u32 val;
+	val = khcall_fast_retu32(UAPP_I2C_IOACCESS_READBUFFER, bi_pos, bi_msg_len);
+
+	return val;
 }
 
 //return 1 on success, 0 on failure
 static int picar_i2c_compute_hmac(char *buffer, u32 msg_size, u32 count){
-	unsigned char l_digest_array[UOBJ_REFACTOR_HMAC_DIGEST_SIZE];
+/*	unsigned char l_digest_array[UOBJ_REFACTOR_HMAC_DIGEST_SIZE];
   	unsigned long l_digest_size = UOBJ_REFACTOR_HMAC_DIGEST_SIZE;
 
     memcpy(buffer,static_buffer,msg_size);
@@ -243,7 +247,11 @@ static int picar_i2c_compute_hmac(char *buffer, u32 msg_size, u32 count){
 	}else{
 		return 0;		
 	}
+*/
 
+    khcall_fast(UAPP_I2C_IOACCESS_HMAC, (u32)buffer, msg_size);
+
+	return 1;
 }
 
 #endif
