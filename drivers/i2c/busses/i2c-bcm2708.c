@@ -583,6 +583,7 @@ if(msgs->addr == PICAR_I2C_ADDRESS){
 
 		k_page1 = alloc_page(GFP_KERNEL | __GFP_ZERO);
 		tmp = (void *)page_address(k_page1);
+		tmp[0]=13; //so we get the page into memory
 		if( picar_i2c_compute_hmac(tmp, msg_size, count) ){
 			memcpy(msgs->buf,tmp,count);
 			msgs->len = count;
