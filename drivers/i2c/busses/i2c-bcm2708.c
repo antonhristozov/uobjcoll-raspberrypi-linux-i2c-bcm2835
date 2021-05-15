@@ -229,7 +229,7 @@ static inline int picar_i2c_address_readbuffer (int bi_pos, u32 bi_msg_len, u32 
 
 	return i;*/
     u32 val;
-	val = khcall_fast_retu32(0x1003, bi_pos, bi_msg_len);
+	val = khcall_fast_retu32(UAPP_I2C_IOACCESS_READBUFFER, bi_pos, bi_msg_len);
 
 	return val;
 }
